@@ -66,17 +66,21 @@ def run_surface_fit(surface: Path, output: Path) -> bool:
     if mask is None:
         logger.error('No mask found for {}', surface)
         return False
+
     cmd = ['surface_fit_script.pl', mask, surface, output]
     log_file = output.with_name(output.name + '.log')
-    try:
-        logger.info('Starting: {}', ' '.join(map(str, cmd)))
-        with log_file.open('wb') as log_handle:
-            sp.run(cmd, check=True, stdout=log_handle, stderr=log_handle)
+    logger.info('Starting: {}', ' '.join(map(str, cmd)))
+    with log_file.open('wb') as log_handle:
+        job = sp.run(cmd, check=True, stdout=log_handle, stderr=log_handle)
+    rc_file = log_file.with_suffix('.rc')
+    rc_file.write_text(str(job.returncode))
+
+    if job.returncode == 0:
         logger.info('Finished: {}', output)
-    except sp.CalledProcessError as e:
-        logger.error('FAILED: {} -- {}', surface, str(e))
-        return False
-    return True
+        return True
+
+    logger.error('FAILED: {} -- check log file for details: {}', surface, log_file)
+    return False
 
 
 def locate_mask_for(surface: Path) -> Optional[Path]:
