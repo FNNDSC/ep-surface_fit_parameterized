@@ -1,7 +1,6 @@
 # Continuous integration testing for ChRIS Plugin.
 # https://github.com/FNNDSC/python-chrisapp-template/wiki/Continuous-Integration
 #
-# - on push, release, and PR: run pytest
 # - on push to main: build and push container images as ":latest"
 # - on release: build and push container image with tag and
 #               upload plugin description to https://chrisstore.co
@@ -11,45 +10,12 @@ name: build
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   release:
     types: [ published ]
 
 jobs:
-  test:
-    name: Unit tests
-    if: false  # CI disabled by default, delete this line to enable CI
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: docker/setup-buildx-action@v2
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-      - name: Build
-        uses: docker/build-push-action@v3
-        with:
-          build-args: extras_require=dev
-          context: .
-          load: true
-          push: false
-          tags: "localhost/local/app:dev"
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-      - name: Run pytest
-        run: |
-          docker run -v "$GITHUB_WORKSPACE:/app:ro" -w /app localhost/local/app:dev \
-            pytest -o cache_dir=/tmp/pytest
-
   build:
     name: Build
-    needs: [ test ]  # tests must pass before build
-    if: github.event_name == 'push' || github.event_name == 'release'
     runs-on: ubuntu-22.04
 
     # A local registry helps us reuse the built image between steps
@@ -123,8 +89,7 @@ jobs:
             localhost:5000/${{ steps.determine.outputs.dock_image }}
             docker.io/${{ steps.determine.outputs.dock_image }}
             ghcr.io/${{ steps.determine.outputs.dock_image }}
-          # if non-x86_84 architectures are supported, add them here
-          platforms: linux/amd64  #,linux/arm64,linux/ppc64le
+          platforms: linux/amd64,linux/arm64,linux/ppc64le
           push: true
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache

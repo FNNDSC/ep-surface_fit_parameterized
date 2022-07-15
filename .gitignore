@@ -9,3 +9,8 @@ __pycache__/
 .vscode/
 
 venv/
+
+
+# test data
+in/
+out/

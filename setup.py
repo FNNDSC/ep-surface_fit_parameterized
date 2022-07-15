@@ -1,19 +1,20 @@
 from setuptools import setup
 
 setup(
-    name='chris-plugin-template',
-    version='1.0.0',
-    description='A ChRIS DS plugin template',
-    author='FNNDSC',
-    author_email='dev@babyMRI.org',
-    url='https://github.com/FNNDSC/python-chrisapp-template',
-    py_modules=['app'],
+    name='ep_surface_fit',
+    version='0.0.1',
+    description='surface_fit wrapper',
+    author='Jennings Zhang',
+    author_email='Jennings.Zhang@childrens.harvard.edu',
+    url='https://github.com/FNNDSC/ep-radial_surface_fit_parameterized',
+    py_modules=['ep_surface_fit'],
+    scripts=['surface_fit_script.pl'],
     install_requires=['chris_plugin'],
     license='MIT',
-    python_requires='>=3.8.2',
+    python_requires='>=3.10.5',
     entry_points={
         'console_scripts': [
-            'commandname = app:main'
+            'ep_surface_fit = ep_surface_fit:main'
         ]
     },
     classifiers=[
