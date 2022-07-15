@@ -76,10 +76,10 @@ def run_surface_fit(surface: Path, output: Path) -> bool:
     rc_file.write_text(str(job.returncode))
 
     if job.returncode == 0:
-        logger.info('Finished: {}', output)
+        logger.info('Finished: {} -> {}', mask, output)
         return True
 
-    logger.error('FAILED: {} -- check log file for details: {}', surface, log_file)
+    logger.error('FAILED -- check log file for details: {}', log_file)
     return False
 
 
