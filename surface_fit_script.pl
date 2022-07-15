@@ -103,7 +103,7 @@ my $oo_scale = 0.5;
 my @schedule = (
 #  size  sw  n_itr inc l_w   iso   si   os   iw  self  t  chamfer_algo
 # -----  --- ----- --- ----  --- ----  ---  ---- ----  -- --------
-  81920, 60,  800, 50, 5e-6, 10, 0.20, 0.0, 1e0, 0.01, 0, $simple,
+  81920, 30,  800, 50, 5e-6, 10, 0.20, 0.0, 1e0, 0.01, 0, $simple,
 );
 
 # Do the fitting stages like gray surface expansion.
