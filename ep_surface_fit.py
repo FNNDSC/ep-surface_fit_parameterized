@@ -71,7 +71,7 @@ def run_surface_fit(surface: Path, output: Path) -> bool:
     log_file = output.with_name(output.name + '.log')
     logger.info('Starting: {}', ' '.join(map(str, cmd)))
     with log_file.open('wb') as log_handle:
-        job = sp.run(cmd, check=True, stdout=log_handle, stderr=log_handle)
+        job = sp.run(cmd, stdout=log_handle, stderr=log_handle)
     rc_file = log_file.with_suffix('.rc')
     rc_file.write_text(str(job.returncode))
 
