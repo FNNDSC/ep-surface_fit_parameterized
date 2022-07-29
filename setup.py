@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='ep_surface_fit',
-    version='0.0.1',
+    version='0.1.0',
     description='surface_fit wrapper',
     author='Jennings Zhang',
     author_email='Jennings.Zhang@childrens.harvard.edu',
@@ -11,7 +11,6 @@ setup(
     scripts=['surface_fit_script.pl'],
     install_requires=['chris_plugin'],
     license='MIT',
-    python_requires='>=3.10.5',
     entry_points={
         'console_scripts': [
             'ep_surface_fit = ep_surface_fit:main'

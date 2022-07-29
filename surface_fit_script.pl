@@ -41,9 +41,14 @@ my $label = 0;
 my $age = 0;
 my $no_downsize = 0;
 my $save_chamfer = undef;
+my $given_sw = 200;
+my $given_lw = 5e-6;
+my $given_iter = 600;
 
 my @options = (
-  # no options
+   ['-iter', 'integer', 1, \$given_iter, "iterations"],
+   ['-sw', 'integer', 1, \$given_sw, "stretch weight"],
+   ['-lw', 'float', 1, \$given_lw, "laplacian weight"],
   );
 
 GetOptions( \@options, \@ARGV ) or exit 1;
@@ -101,9 +106,9 @@ my $oo_scale = 0.5;
 # t     iterations of taubin smoothing after cycles of surface_fit
 
 my @schedule = (
-#  size  sw  n_itr inc l_w   iso   si   os   iw  self  t  chamfer_algo
-# -----  --- ----- --- ----  --- ----  ---  ---- ----  -- --------
-  81920, 30,  800, 50, 5e-6, 10, 0.20, 0.0, 1e0, 0.01, 0, $simple,
+#  size  sw          n_itr        inc   l_w    iso   si   os   iw  self  t  chamfer_algo
+# -----  ---         -----        ---   ----   --- ----  ---  ---- ----  -- --------
+  81920, $given_sw,  $given_iter, 50, $given_lw, 10, 0.20, 0.0, 1e0, 0.01, 0, $simple,
 );
 
 # Do the fitting stages like gray surface expansion.
