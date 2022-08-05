@@ -64,7 +64,7 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
 
     nproc = len(os.sched_getaffinity(0))
     logger.info('Using {} threads.', nproc)
-    mapper = PathMapper.file_mapper(inputdir, outputdir, glob='**/*.obj', suffix='.obj')
+    mapper = PathMapper.file_mapper(inputdir, outputdir, glob='**/*.mnc', suffix='.mnc')
     with ThreadPoolExecutor(max_workers=nproc) as pool:
         results = pool.map(lambda t, p: run_surface_fit(*t, p), mapper, itertools.repeat(params))
 
@@ -72,13 +72,13 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
         sys.exit(1)
 
 
-def run_surface_fit(surface: Path, output: Path, params: list[str]) -> bool:
+def run_surface_fit(mask: Path, output: Path, params: list[str]) -> bool:
     """
     :return: True if successful
     """
-    mask = locate_mask_for(surface)
-    if mask is None:
-        logger.error('No mask found for {}', surface)
+    surface = locate_surface_for(mask)
+    if surface is None:
+        logger.error('No starting surface found for {}', mask)
         return False
 
     cmd = ['surface_fit_script.pl', *params, mask, surface, output]
@@ -97,13 +97,8 @@ def run_surface_fit(surface: Path, output: Path, params: list[str]) -> bool:
     return False
 
 
-def locate_mask_for(surface: Path) -> Optional[Path]:
-    name = surface.with_suffix('.mnc').name.replace('._81920', '')
-    mask = surface.with_name(name)
-    if mask.exists():
-        return mask
-
-    glob = surface.parent.glob('*.mnc')
+def locate_surface_for(mask: Path) -> Optional[Path]:
+    glob = mask.parent.glob('*.obj')
     first = next(glob, None)
     second = next(glob, None)
     if second is not None:
