@@ -44,11 +44,15 @@ my $save_chamfer = undef;
 my $given_sw = 200;
 my $given_lw = 5e-6;
 my $given_iter = 600;
+my $given_resize = 1.0;
+my $given_si = 0.20;
 
 my @options = (
    ['-iter', 'integer', 1, \$given_iter, "iterations"],
    ['-sw', 'integer', 1, \$given_sw, "stretch weight"],
    ['-lw', 'float', 1, \$given_lw, "laplacian weight"],
+   ['-resize', 'float', 1, \$given_resize, "linear scaling"],
+   ['-si', 'float', 1, \$given_si, "step increment"],
   );
 
 GetOptions( \@options, \@ARGV ) or exit 1;
@@ -71,6 +75,21 @@ my $simple = "${tmpdir}/simple_chamfer.mnc";
 simple_chamfer( $inner_mask, $simple, $tmpdir );
 copy( $simple, $save_chamfer ) if ( defined( $save_chamfer) );
 
+# scale up experiment
+my $resize_xfm = "${tmpdir}/resize.xfm";
+&run( "param2xfm", '-scales', $given_resize, $given_resize, $given_resize, $resize_xfm );
+my $resize_reciprocal = 1.0 / $given_resize;
+my $undo_resize_xfm = "${tmpdir}/undo_resize.xfm";
+&run( "param2xfm", '-scales', $resize_reciprocal, $resize_reciprocal, $resize_reciprocal, $undo_resize_xfm );
+
+&run( "transform_objects", $surface, $resize_xfm, $surface );
+&run( "transform_volume", $simple, $resize_xfm, $simple );
+
+# distance map is resized which changes the magnitude of its vectors,
+# so we need to readjust them.
+&run( 'minccalc', '-quiet', '-clobber', '-expression', "(A[0]-10)*$given_resize+10",
+    $simple, "${tmpdir}/simple_chamfer_resized.mnc" );
+move("${tmpdir}/simple_chamfer_resized.mnc", $simple);
 
 my $self_dist2 = 0.001;
 my $self_weight2 = 1e08;
@@ -108,7 +127,7 @@ my $oo_scale = 0.5;
 my @schedule = (
 #  size  sw          n_itr        inc   l_w    iso   si   os   iw  self  t  chamfer_algo
 # -----  ---         -----        ---   ----   --- ----  ---  ---- ----  -- --------
-  81920, $given_sw,  $given_iter, 50, $given_lw, 10, 0.20, 0.0, 1e0, 0.01, 0, $simple,
+  81920, $given_sw,  $given_iter, 50, $given_lw, 10, $given_si, 0.0, 1e0, 0.01, 0, $simple,
 );
 
 # Do the fitting stages like gray surface expansion.
@@ -152,7 +171,7 @@ for ( my $i = 0;  $i < @schedule;  $i += $sched_size ) {
   }
 }
 unlink( $stretch_model );
-
+&run( "transform_objects", $surface, $undo_resize_xfm, $surface );
 
 # ============================================================
 #     HELPER FUNCTIONS

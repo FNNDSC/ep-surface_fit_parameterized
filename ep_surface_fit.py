@@ -37,6 +37,8 @@ parser.add_argument('--no-fail', dest='no_fail', action='store_true',
 parser.add_argument('--sw', type=int, default=200, help='stretch weight')
 parser.add_argument('--lw', type=float, default=5e-6, help='laplacian weight')
 parser.add_argument('--iter', type=int, default=600, help='iterations')
+parser.add_argument('--resize', type=float, default=1.0, help='linear scaling')
+parser.add_argument('--step-increment', type=float, default=0.20, help='step increment')
 
 
 parser.add_argument('-V', '--version', action='version',
@@ -59,7 +61,11 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
         '-sw',
         str(options.sw),
         '-iter',
-        str(options.iter)
+        str(options.iter),
+        '-resize',
+        str(options.resize),
+        '-si',
+        str(options.step_increment)
     ]
 
     nproc = len(os.sched_getaffinity(0))
