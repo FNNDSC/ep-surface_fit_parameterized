@@ -71,7 +71,8 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
 
     nproc = len(os.sched_getaffinity(0))
     logger.info('Using {} threads.', nproc)
-    mapper = PathMapper.file_mapper(inputdir, outputdir, glob='**/*.mnc', suffix='.mnc')
+
+    mapper = PathMapper.file_mapper(inputdir, outputdir, glob='**/*.mnc')
     with ThreadPoolExecutor(max_workers=nproc) as pool:
         results = pool.map(lambda t, p: run_surface_fit(*t, p), mapper, itertools.repeat(params))
 
@@ -79,7 +80,7 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
         sys.exit(1)
 
 
-def run_surface_fit(mask: Path, output: Path, params: list[str]) -> bool:
+def run_surface_fit(mask: Path, output_mask: Path, params: list[str]) -> bool:
     """
     :return: True if successful
     """
@@ -88,11 +89,10 @@ def run_surface_fit(mask: Path, output: Path, params: list[str]) -> bool:
         logger.error('No starting surface found for {}', mask)
         return False
 
-    copied_mask = output.parent / mask.name
-    shutil.copy(mask, copied_mask)
-
-    cmd = ['surface_fit_script.pl', *params, copied_mask, surface, output]
-    log_file = output.with_name(output.name + '.log')
+    shutil.copy(mask, output_mask)
+    output_surf = output_mask.with_suffix('._81920.obj')
+    cmd = ['surface_fit_script.pl', *params, output_mask, surface, output_surf]
+    log_file = output_surf.with_name(output_surf.name + '.log')
     logger.info('Starting: {}', ' '.join(map(str, cmd)))
     with log_file.open('wb') as log_handle:
         job = sp.run(cmd, stdout=log_handle, stderr=log_handle)
@@ -100,7 +100,7 @@ def run_surface_fit(mask: Path, output: Path, params: list[str]) -> bool:
     rc_file.write_text(str(job.returncode))
 
     if job.returncode == 0:
-        logger.info('Finished: {} -> {}', mask, output)
+        logger.info('Finished: {} -> {}', mask, output_surf)
         return True
 
     logger.error('FAILED -- check log file for details: {}', log_file)
