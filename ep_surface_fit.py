@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import itertools
 import os
+import shutil
 import sys
 from pathlib import Path
 from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
@@ -87,7 +88,10 @@ def run_surface_fit(mask: Path, output: Path, params: list[str]) -> bool:
         logger.error('No starting surface found for {}', mask)
         return False
 
-    cmd = ['surface_fit_script.pl', *params, mask, surface, output]
+    copied_mask = output.parent / mask.name
+    shutil.copy(mask, copied_mask)
+
+    cmd = ['surface_fit_script.pl', *params, copied_mask, surface, output]
     log_file = output.with_name(output.name + '.log')
     logger.info('Starting: {}', ' '.join(map(str, cmd)))
     with log_file.open('wb') as log_handle:
