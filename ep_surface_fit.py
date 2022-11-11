@@ -89,7 +89,8 @@ def run_surface_fit(mask: Path, output_mask: Path, params: list[str]) -> bool:
         logger.error('No starting surface found for {}', mask)
         return False
 
-    shutil.copy(mask, output_mask)
+    if mask != output_mask:
+        shutil.copy(mask, output_mask)
     output_surf = output_mask.with_suffix('._81920.obj')
     cmd = ['surface_fit_script.pl', *params, output_mask, surface, output_surf]
     log_file = output_surf.with_name(output_surf.name + '.log')
