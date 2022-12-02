@@ -3,7 +3,6 @@
 # Modified from:
 # https://github.com/FNNDSC/pl-surfaces-fetus/blob/5eca9f8c60cd6e010dd9a2ac1fad850f0468d319/scripts/fit_subplate.pl
 #
-# TODO parameterize and document all of these arguments.
 
 use strict;
 use warnings "all";
@@ -20,76 +19,114 @@ use MNI::DataDir;
 # --- set the help & usage strings ---
 my $help = <<HELP;
 Required parameters:
-  mask.mnc  : target volume to fit to
-  wm.obj    : starting surface
-  iz.obj    : output filename
+  laplace.mnc  : distance map or laplacian field
+  start.obj    : starting surface
+  output.obj   : output filename
 HELP
 
 my $usage = <<USAGE;
-Usage: $ProgramName [options...] mask.mnc wm.obj iz.obj
+Usage: $ProgramName [options...] laplace.mnc start.obj output.obj
        $ProgramName -help to list options
 USAGE
 
 my $description = <<DESCRIPTION;
 $usage
-Wrapper for surface_fit and using mincchamfer to create a radial distance map.
+Wrapper for surface_fit.
+Parameters should be specified as comma-separated values. Multiple values
+per parameter means to run multiple iterations of surface_fit.
 DESCRIPTION
 
 Getopt::Tabular::SetHelp( $help, $description );
 
-my $label = 0;
-my $age = 0;
-my $no_downsize = 0;
-my $save_chamfer = undef;
-my $given_sw = 200;
-my $given_lw = 5e-6;
-my $given_iter = 600;
-my $given_resize = 1.0;
-my $given_si = 0.20;
+my $given_size;
+my $given_sw;
+my $given_lw;
+my $given_iter_outer;
+my $given_iter_inner;
+my $given_iso;
+my $given_si;
+my $given_subsample;
+my $given_self;
+my $given_self_weight;
+my $given_taubin;
 
 my @options = (
-   ['-iter', 'integer', 1, \$given_iter, "iterations"],
-   ['-sw', 'integer', 1, \$given_sw, "stretch weight"],
-   ['-lw', 'float', 1, \$given_lw, "laplacian weight"],
-   ['-resize', 'float', 1, \$given_resize, "linear scaling"],
-   ['-si', 'float', 1, \$given_si, "step increment"],
+   ['-size', 'string', 1, \$given_size, "number of polygons"],
+   ['-sw', 'string', 1, \$given_sw, "stretch weight"],
+   ['-lw', 'string', 1, \$given_lw, "laplacian weight"],
+   ['-iter-outer', 'string', 1, \$given_iter_outer, "outer loop iterations"],
+   ['-iter-inner', 'string', 1, \$given_iter_inner, "inner loop iterations"],
+   ['-iso-value', 'string', 1, \$given_iso, "Chamfer value of laplacian map indicating mask boundary (i.e. target value)"],
+   ['-step-size', 'string', 1, \$given_si, "Step size per iteration"],
+   ['-oversample', 'string', 1, \$given_subsample, "do subsampling (0=none, n=#points extra along edge)"],
+   ['-self-dist', 'string', 1, \$given_self, "distance to check for self-intersection"],
+   ['-self-weight', 'string', 1, \$given_self_weight, "weight for self-intersection constraint"],
+   ['-taubin', 'string', 1, \$given_taubin, "iterations of taubin smoothing to perform between cycles of surface_fit"]
   );
 
 GetOptions( \@options, \@ARGV ) or exit 1;
 die "$usage\n" unless @ARGV == 3;
 
-my $inner_mask = shift;
+my $chamfer = shift;
 my $white_surface = shift;
 my $surface = shift;
 
+my @a_size = split(',', $given_size);
+my @a_sw = split(',', $given_sw);
+my @a_lw = split(',', $given_lw);
+my @a_iter_outer = map { int $_ } split(',', $given_iter_outer);
+my @a_iter_inner = map { int $_ } split(',', $given_iter_inner);
+my @a_iso = split(',', $given_iso);
+my @a_si = split(',', $given_si);
+my @a_subsample = split(',', $given_subsample);
+my @a_self_dist = split(',', $given_self);
+my @a_self_weight = map { $_ * 1.0 } split(',', $given_self_weight);
+my @a_taubin = split(',', $given_taubin);
+
+# TODO default values
+
+my @schedule = ();
+my $sched_size = 11;
+my $num_rows = @a_lw;
+
+for (my $i = 0; $i < $num_rows; $i++) {
+  # size  number of triangles
+  # sw    weight for mesh stretching (bigger means less stretch)
+  #       small value will create a highly voxelated/bumpy surface,
+  #       but with good detail.
+  #       large value for sw creates a very smooth surface that
+  #       destroys topological detail.
+  #       sw>40 will not fit into concavities that are 2 voxels wide.
+  # n_itr number of iterations
+  # inc   save every 20 iters
+  # l_w   weight for Laplacian field: large value means tighter fit,
+  #       but it seems that a small value is better convergence wise
+  #       to ensure mesh quality.
+  # iso   target value of the LaPlacian field to converge to
+  # si    max step increment (large is faster, but risk of intersection)
+  # os    do subsampling (0=none, n=#points extra along edge);
+  #       (helps to get through isolated csf voxels in insula region,
+  #       but must finish off the job without subsampling)
+  # iw    weight for surface self-intersection
+  # self  min distance to check for surface self-intersection
+  #       (0.0625 found to be too high)
+  # t     iterations of taubin smoothing after cycles of surface_fit
+  my @row = (
+  #  size         sw          n_itr              inc                l_w        iso         si         os                iw                  self              t
+  #  -----        ---         -----              ---                ----       ---         ----       ---               ----                ----              --
+    $a_size[$i], $a_sw[$i],  $a_iter_outer[$i], $a_iter_inner[$i], $a_lw[$i], $a_iso[$i], $a_si[$i], $a_subsample[$i], $a_self_weight[$i], $a_self_dist[$i], $a_taubin[$i],
+  );
+  push(@schedule, @row);
+}
+
 copy($white_surface, $surface);
 
-my $tmpdir = &tempdir( "subplate-XXXXXX", TMPDIR => 1, CLEANUP => 1 );
+my $tmpdir = &tempdir( "ep-surface_fit_parametarized-XXXXXX", TMPDIR => 1, CLEANUP => 1 );
 
 my $stretch_model = "$tmpdir/stretch_length_model.obj";
 my $ICBM_white_model = MNI::DataDir::dir("surface-extraction") .
                        "/white_model_320.obj";
 copy($ICBM_white_model, $stretch_model);
-
-my $simple = "${tmpdir}/simple_chamfer.mnc";
-simple_chamfer( $inner_mask, $simple, $tmpdir );
-copy( $simple, $save_chamfer ) if ( defined( $save_chamfer) );
-
-# scale up experiment
-my $resize_xfm = "${tmpdir}/resize.xfm";
-&run( "param2xfm", '-scales', $given_resize, $given_resize, $given_resize, $resize_xfm );
-my $resize_reciprocal = 1.0 / $given_resize;
-my $undo_resize_xfm = "${tmpdir}/undo_resize.xfm";
-&run( "param2xfm", '-scales', $resize_reciprocal, $resize_reciprocal, $resize_reciprocal, $undo_resize_xfm );
-
-&run( "transform_objects", $surface, $resize_xfm, $surface );
-&run( "transform_volume", $simple, $resize_xfm, $simple );
-
-# distance map is resized which changes the magnitude of its vectors,
-# so we need to readjust them.
-&run( 'minccalc', '-quiet', '-clobber', '-expression', "(A[0]-10)*$given_resize+10",
-    $simple, "${tmpdir}/simple_chamfer_resized.mnc" );
-move("${tmpdir}/simple_chamfer_resized.mnc", $simple);
 
 my $self_dist2 = 0.001;
 my $self_weight2 = 1e08;
@@ -100,67 +137,34 @@ my $stop_iters = 1000;
 my $n_per = 5;
 my $tolerance = 1.0e-03;
 my $f_tolerance = 1.0e-06;
-my $oo_scale = 0.5;
-
-# size  number of triangles
-# sw    weight for mesh stretching (bigger means less stretch)
-#       small value will create a highly voxelated/bumpy surface,
-#       but with good detail.
-#       large value for sw creates a very smooth surface that
-#       destroys topological detail.
-#       sw>40 will not fit into concavities that are 2 voxels wide.
-# n_itr number of iterations
-# inc   save every 20 iters
-# l_w   weight for Laplacian field: large value means tighter fit,
-#       but it seems that a small value is better convergence wise
-#       to ensure mesh quality.
-# iso   target value of the LaPlacian field to converge to
-# si    max step increment (large is faster, but risk of intersection)
-# os    do subsampling (0=none, n=#points extra along edge);
-#       (helps to get through isolated csf voxels in insula region,
-#       but must finish off the job without subsampling)
-# iw    weight for surface self-intersection
-# self  min distance to check for surface self-intersection
-#       (0.0625 found to be too high)
-# t     iterations of taubin smoothing after cycles of surface_fit
-
-my @schedule = (
-#  size  sw          n_itr        inc   l_w    iso   si   os   iw  self  t  chamfer_algo
-# -----  ---         -----        ---   ----   --- ----  ---  ---- ----  -- --------
-  81920, $given_sw,  $given_iter, 50, $given_lw, 10, $given_si, 0.0, 1e0, 0.01, 0, $simple,
-);
-
-# Do the fitting stages like gray surface expansion.
-my $sched_size = 12;
-my $num_steps = @schedule / $sched_size;
-my $num_rows = @schedule / $sched_size;
 
 for ( my $i = 0;  $i < @schedule;  $i += $sched_size ) {
 
   my $row = $i / $sched_size + 1;
+  print "Schedule row ${row} / ${num_rows}\n";
 
   my ( $size, $sw, $n_iters, $iter_inc, $laplacian_weight, $iso,
        $step_increment, $oversample, $self_weight, $self_dist,
-       $smooth, $chamfer_map ) = @schedule[$i..$i+$sched_size-1];
+       $smooth ) = @schedule[$i..$i+$sched_size-1];
+
+  print "debug: row is @schedule[$i..$i+$sched_size-1]";
 
   subdivide_mesh( $surface, $size, $surface );
   subdivide_mesh( $stretch_model, $size, $stretch_model );
 
-  $oversample *= $oo_scale;
   my $self2 = get_self_intersect( $self_weight, $self_weight2, $n_selfs,
                                   $self_dist, $self_dist2 );
 
   for( my $iter = 0;  $iter < $n_iters;  $iter += $iter_inc ) {
-    print "echo Step ${size}: $iter / $n_iters    sw=$sw,  "
-          . "Schedule row ${row} / ${num_rows}\n";
 
+    print "inner loop iter=$iter n_iters=$n_iters iter_inc=$iter_inc\n";
     my $ni = $n_iters - $iter;
     $ni = $iter_inc if( $ni > $iter_inc );
 
     my $command = "surface_fit " .
                   "-mode two -surface  $surface $surface" .
                   " -stretch $sw $stretch_model -.9 0 0 0" .
-                  " -laplacian $chamfer_map $laplacian_weight 0 " .
+                  " -laplacian $chamfer $laplacian_weight 0 " .
                   " $iso $oversample " .
                   " $self2 -step $step_increment " .
                   " -fitting $ni $n_per $tolerance " .
@@ -168,10 +172,12 @@ for ( my $i = 0;  $i < @schedule;  $i += $sched_size ) {
                   " -stop $stop_threshold $stop_iters ";
     print $command . "\n";
     system( $command ) == 0 or die "Command $command failed with status: $?";
+
+    # Add a little bit of Taubin smoothing between cycles.
+    &taubinize_surface( $surface, $smooth );
   }
 }
 unlink( $stretch_model );
-&run( "transform_objects", $surface, $undo_resize_xfm, $surface );
 
 # ============================================================
 #     HELPER FUNCTIONS
@@ -246,32 +252,6 @@ sub subdivide_mesh {
   }
 }
 
-
-sub simple_chamfer {
-
-  my $wm_mask = shift;
-  my $output_chamfer = shift;
-  my $tmpdir = shift;
-  my $mask = "${tmpdir}/wm_mask_defragged.mnc";
-
-  &run( 'mincreshape', '-image_range', '0', '255', $wm_mask, $mask);
-  &run( 'mincdefrag', $mask, $mask, 0, 6 );
-  &run( 'mincdefrag', $mask, $mask, 1, 6 );
-  &run( 'mincchamfer', '-quiet', '-max_dist', '20.0',
-        $mask, "${tmpdir}/chamfer_outside.mnc" );
-  &run( 'minccalc', '-quiet', '-clobber', '-expression', '1-A[0]',
-        $mask, "${tmpdir}/wm_mask_negated.mnc" );
-  &run( 'mincchamfer', '-quiet', '-max_dist', '5.0',
-        "${tmpdir}/wm_mask_negated.mnc", "${tmpdir}/chamfer_inside.mnc" );
-  unlink( "${tmpdir}/wm_mask_negated.mnc" );
-  &run( 'minccalc', '-quiet', '-clob', '-expression', "10.0-A[0]+A[1]",
-        "${tmpdir}/chamfer_inside.mnc", "${tmpdir}/chamfer_outside.mnc",
-        $output_chamfer );
-  unlink( "${tmpdir}/chamfer_outside.mnc" );
-  unlink( "${tmpdir}/chamfer_inside.mnc" );
-  return $output_chamfer;
-}
-
 # copied from lib/surface-extraction/deform_utils.pl
 sub  get_self_intersect( $$$$$ )
 {
@@ -297,6 +277,34 @@ sub  get_self_intersect( $$$$$ )
   $self;
 }
 
+# Add a little bit of Taubin smoothing between cycles. This
+# can introduce self-intersections, so try to fix those as
+# well, in any. If the surface cannot be improved, return the
+# original.
+
+sub taubinize_surface {
+
+  my $surf = shift;
+  my $iter = shift;
+
+  return if ( $iter == 0 ); # do nothing
+
+  my $tmp_surf = "${tmpdir}/surface_taubin.obj";
+
+  &run( 'adapt_object_mesh', $surf, $tmp_surf, 0, $iter, 0, 0 );
+  my $tries = 0;
+  do {
+    &run( 'check_self_intersect', $tmp_surf, '-fix', $tmp_surf );
+    my @ret = `check_self_intersect $tmp_surf`;
+    $ret[1] =~ /Number of self-intersecting triangles = (\d+)/;
+    if( $1 == 0 ) {
+      `mv -f $tmp_surf $surf`;
+      $tries = 9999;
+    }
+    $tries++;
+  } while( $tries < 10 );
+  unlink( $tmp_surf ) if( -e $tmp_surf );
+}
 
 # Execute a system call.
 
