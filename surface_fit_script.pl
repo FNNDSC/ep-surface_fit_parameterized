@@ -10,6 +10,7 @@ use File::Basename;
 use File::Spec;
 use File::Temp qw/ tempdir /;
 use File::Copy;
+use List::Util qw(max);
 
 use Getopt::Tabular;
 use MNI::Startup;
@@ -32,23 +33,33 @@ USAGE
 my $description = <<DESCRIPTION;
 $usage
 Wrapper for surface_fit.
-Parameters should be specified as comma-separated values. Multiple values
+Parameters should be specified as comma-separated values (CSV). Multiple values
 per parameter means to run multiple iterations of surface_fit.
+
+If some parameter values are given as CSV whereas others are given as singular, e.g.
+
+    $ProgramName -sw 80,60,40 -size 81920
+
+The singular value is reused for later iterations. The example above is interpreted the same as
+
+    $ProgramName -sw 80,60,40 -size 81920,81920,81920
+
 DESCRIPTION
 
 Getopt::Tabular::SetHelp( $help, $description );
 
-my $given_size;
-my $given_sw;
-my $given_lw;
-my $given_iter_outer;
-my $given_iter_inner;
-my $given_iso;
-my $given_si;
-my $given_subsample;
-my $given_self;
-my $given_self_weight;
-my $given_taubin;
+# default values
+my $given_size = "81920";
+my $given_sw = "100";
+my $given_lw = "5e-6";
+my $given_iter_outer = "100";
+my $given_iter_inner = "50";
+my $given_iso = "10";
+my $given_si = "0.10";
+my $given_subsample = "0";
+my $given_self = "0.01";
+my $given_self_weight = "1";
+my $given_taubin = "0";
 
 my @options = (
    ['-size', 'string', 1, \$given_size, "number of polygons"],
@@ -67,27 +78,40 @@ my @options = (
 GetOptions( \@options, \@ARGV ) or exit 1;
 die "$usage\n" unless @ARGV == 3;
 
+# positional arguments
 my $chamfer = shift;
 my $white_surface = shift;
 my $surface = shift;
 
-my @a_size = split(',', $given_size);
-my @a_sw = split(',', $given_sw);
-my @a_lw = split(',', $given_lw);
+# parse CSV values as lists
+my @a_size = map { int $_ } split(',', $given_size);
+my @a_sw = map { $_ * 1.0 } split(',', $given_sw);
+my @a_lw = map { $_ * 1.0 } split(',', $given_lw);
 my @a_iter_outer = map { int $_ } split(',', $given_iter_outer);
 my @a_iter_inner = map { int $_ } split(',', $given_iter_inner);
-my @a_iso = split(',', $given_iso);
-my @a_si = split(',', $given_si);
-my @a_subsample = split(',', $given_subsample);
-my @a_self_dist = split(',', $given_self);
+my @a_iso = map { $_ * 1.0 } split(',', $given_iso);
+my @a_si = map { $_ * 1.0 } split(',', $given_si);
+my @a_subsample = map { int $_ } split(',', $given_subsample);
+my @a_self_dist = map { $_ * 1.0 } split(',', $given_self);
 my @a_self_weight = map { $_ * 1.0 } split(',', $given_self_weight);
-my @a_taubin = split(',', $given_taubin);
-
-# TODO default values
+my @a_taubin = map { int $_ } split(',', $given_taubin);
 
 my @schedule = ();
 my $sched_size = 11;
-my $num_rows = @a_lw;
+
+my $num_rows = max(
+  scalar @a_size,
+  scalar @a_sw,
+  scalar @a_lw,
+  scalar @a_iter_outer,
+  scalar @a_iter_inner,
+  scalar @a_iso,
+  scalar @a_si,
+  scalar @a_subsample,
+  scalar @a_self_dist,
+  scalar @a_self_weight,
+  scalar @a_taubin
+);
 
 for (my $i = 0; $i < $num_rows; $i++) {
   # size  number of triangles
@@ -99,7 +123,7 @@ for (my $i = 0; $i < $num_rows; $i++) {
   #       sw>40 will not fit into concavities that are 2 voxels wide.
   # n_itr number of iterations
   # inc   save every 20 iters
-  # l_w   weight for Laplacian field: large value means tighter fit,
+  # lw    weight for Laplacian field: large value means tighter fit,
   #       but it seems that a small value is better convergence wise
   #       to ensure mesh quality.
   # iso   target value of the LaPlacian field to converge to
@@ -111,11 +135,20 @@ for (my $i = 0; $i < $num_rows; $i++) {
   # self  min distance to check for surface self-intersection
   #       (0.0625 found to be too high)
   # t     iterations of taubin smoothing after cycles of surface_fit
-  my @row = (
-  #  size         sw          n_itr              inc                l_w        iso         si         os                iw                  self              t
-  #  -----        ---         -----              ---                ----       ---         ----       ---               ----                ----              --
-    $a_size[$i], $a_sw[$i],  $a_iter_outer[$i], $a_iter_inner[$i], $a_lw[$i], $a_iso[$i], $a_si[$i], $a_subsample[$i], $a_self_weight[$i], $a_self_dist[$i], $a_taubin[$i],
-  );
+
+  my $size = at_or_first(@a_size, $i);
+  my $sw = at_or_first(@a_sw, $i);
+  my $n_itr = at_or_first(@a_iter_outer, $i);
+  my $inc = at_or_first(@a_iter_inner, $i);
+  my $lw = at_or_first(@a_lw, $i);
+  my $iso = at_or_first(@a_iso, $i);
+  my $si = at_or_first(@a_si, $i);
+  my $os = at_or_first(@a_subsample, $i);
+  my $iw = at_or_first(@a_self_weight, $i);
+  my $self_dist = at_or_first(@a_self_dist, $i);
+  my $t = at_or_first(@a_taubin, $i);
+
+  my @row = ($size, $sw, $n_itr, $inc, $lw, $iso, $si, $os, $iw, $self_dist, $t);
   push(@schedule, @row);
 }
 
@@ -124,8 +157,7 @@ copy($white_surface, $surface);
 my $tmpdir = &tempdir( "ep-surface_fit_parametarized-XXXXXX", TMPDIR => 1, CLEANUP => 1 );
 
 my $stretch_model = "$tmpdir/stretch_length_model.obj";
-my $ICBM_white_model = MNI::DataDir::dir("surface-extraction") .
-                       "/white_model_320.obj";
+my $ICBM_white_model = MNI::DataDir::dir("surface-extraction") . "/white_model_320.obj";
 copy($ICBM_white_model, $stretch_model);
 
 my $self_dist2 = 0.001;
@@ -147,8 +179,6 @@ for ( my $i = 0;  $i < @schedule;  $i += $sched_size ) {
        $step_increment, $oversample, $self_weight, $self_dist,
        $smooth ) = @schedule[$i..$i+$sched_size-1];
 
-  print "debug: row is @schedule[$i..$i+$sched_size-1]";
-
   subdivide_mesh( $surface, $size, $surface );
   subdivide_mesh( $stretch_model, $size, $stretch_model );
 
@@ -156,8 +186,7 @@ for ( my $i = 0;  $i < @schedule;  $i += $sched_size ) {
                                   $self_dist, $self_dist2 );
 
   for( my $iter = 0;  $iter < $n_iters;  $iter += $iter_inc ) {
-
-    print "inner loop iter=$iter n_iters=$n_iters iter_inc=$iter_inc\n";
+    print "$ProgramName:inner loop iter=$iter n_iters=$n_iters iter_inc=$iter_inc\n";
     my $ni = $n_iters - $iter;
     $ni = $iter_inc if( $ni > $iter_inc );
 
@@ -311,4 +340,15 @@ sub taubinize_surface {
 sub run {
   print "@_\n";
   system(@_)==0 or die "Command @_ failed with status: $?";
+}
+
+
+sub at_or_first {
+  my @array = shift;
+  my $index = shift;
+
+  if ($index < @array) {
+    return $array[$index];
+  }
+  return $array[0];
 }
