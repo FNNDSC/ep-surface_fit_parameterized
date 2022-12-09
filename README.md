@@ -44,4 +44,11 @@ Number of triangles in the surface mesh, i.e. resolution
 - 81920 is standard
 - 327680 is used for high-resolution adult human brain
 
+#### `--step-size`
+
+Distance to move per iteration.
+
+- large value converges faster
+- small value decreases risk of self-intersection
+
 ...
