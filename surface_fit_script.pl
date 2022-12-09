@@ -52,7 +52,7 @@ Getopt::Tabular::SetHelp( $help, $description );
 my $given_size = "81920";
 my $given_sw = "100";
 my $given_lw = "5e-6";
-my $given_iter_outer = "100";
+my $given_iter_outer = "1000";
 my $given_iter_inner = "50";
 my $given_iso = "10";
 my $given_si = "0.10";
@@ -65,8 +65,8 @@ my @options = (
    ['-size', 'string', 1, \$given_size, "number of polygons"],
    ['-sw', 'string', 1, \$given_sw, "stretch weight"],
    ['-lw', 'string', 1, \$given_lw, "laplacian weight"],
-   ['-iter-outer', 'string', 1, \$given_iter_outer, "outer loop iterations"],
-   ['-iter-inner', 'string', 1, \$given_iter_inner, "inner loop iterations"],
+   ['-iter-outer', 'string', 1, \$given_iter_outer, "total number of iterations per stage"],
+   ['-iter-inner', 'string', 1, \$given_iter_inner, "save every few iterations"],
    ['-iso-value', 'string', 1, \$given_iso, "Chamfer value of laplacian map indicating mask boundary (i.e. target value)"],
    ['-step-size', 'string', 1, \$given_si, "Step size per iteration"],
    ['-oversample', 'string', 1, \$given_subsample, "do subsampling (0=none, n=#points extra along edge)"],
