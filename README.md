@@ -34,7 +34,7 @@ The schedule is interpreted as:
 
 1. 100 iterations with sw=80 lw=1e-4
 2. 100 iterations with sw=60 lw=1e-4
-3. 400 iterations with sw=80 lw=1e-4
+3. 400 iterations with sw=40 lw=1e-4
 
 #### `--size`
 
