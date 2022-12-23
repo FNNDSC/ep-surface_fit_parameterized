@@ -34,7 +34,7 @@ The schedule is interpreted as:
 
 1. 100 iterations with sw=80 lw=1e-4
 2. 100 iterations with sw=60 lw=1e-4
-3. 400 iterations with sw=80 lw=1e-4
+3. 400 iterations with sw=40 lw=1e-4
 
 #### `--size`
 
@@ -43,5 +43,12 @@ Number of triangles in the surface mesh, i.e. resolution
 - 20480 improves performance and is more suitable for fetal brains 20-28 GA
 - 81920 is standard
 - 327680 is used for high-resolution adult human brain
+
+#### `--step-size`
+
+Distance to move per iteration.
+
+- large value converges faster
+- small value decreases risk of self-intersection
 
 ...
