@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 import itertools
 import os
-import shutil
-import sys
-from pathlib import Path
-from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
-from importlib.metadata import Distribution
-from typing import Optional
-from concurrent.futures import ThreadPoolExecutor
 import subprocess as sp
+import sys
+from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
+from concurrent.futures import ThreadPoolExecutor
+from importlib.metadata import Distribution
+from pathlib import Path
+from typing import Optional
+
 from chris_plugin import chris_plugin, PathMapper
 from loguru import logger
-
 
 __pkg = Distribution.from_name(__package__)
 __version__ = __pkg.version
