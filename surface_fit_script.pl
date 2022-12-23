@@ -136,19 +136,21 @@ for (my $i = 0; $i < $num_rows; $i++) {
   #       (0.0625 found to be too high)
   # t     iterations of taubin smoothing after cycles of surface_fit
 
-  my $size = at_or_first(@a_size, $i);
-  my $sw = at_or_first(@a_sw, $i);
-  my $n_itr = at_or_first(@a_iter_outer, $i);
-  my $inc = at_or_first(@a_iter_inner, $i);
-  my $lw = at_or_first(@a_lw, $i);
-  my $iso = at_or_first(@a_iso, $i);
-  my $si = at_or_first(@a_si, $i);
-  my $os = at_or_first(@a_subsample, $i);
-  my $iw = at_or_first(@a_self_weight, $i);
-  my $self_dist = at_or_first(@a_self_dist, $i);
-  my $t = at_or_first(@a_taubin, $i);
+  my $size = at_or_first(\@a_size, $i);
+  my $sw = at_or_first(\@a_sw, $i);
+  my $n_itr = at_or_first(\@a_iter_outer, $i);
+  my $inc = at_or_first(\@a_iter_inner, $i);
+  my $lw = at_or_first(\@a_lw, $i);
+  my $iso = at_or_first(\@a_iso, $i);
+  my $si = at_or_first(\@a_si, $i);
+  my $os = at_or_first(\@a_subsample, $i);
+  my $iw = at_or_first(\@a_self_weight, $i);
+  my $self_dist = at_or_first(\@a_self_dist, $i);
+  my $t = at_or_first(\@a_taubin, $i);
 
   my @row = ($size, $sw, $n_itr, $inc, $lw, $iso, $si, $os, $iw, $self_dist, $t);
+
+  print "i=$i row=@row\n";
   push(@schedule, @row);
 }
 
@@ -344,11 +346,11 @@ sub run {
 
 
 sub at_or_first {
-  my @array = shift;
+  my $array = shift;
   my $index = shift;
 
-  if ($index < @array) {
-    return $array[$index];
+  if ($index < @$array) {
+    return @$array[$index];
   }
-  return $array[0];
+  return @$array[0];
 }
