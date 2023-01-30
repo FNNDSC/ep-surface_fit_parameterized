@@ -12,7 +12,7 @@ from typing import Optional
 from chris_plugin import chris_plugin, PathMapper
 from loguru import logger
 
-__pkg = Distribution.from_name(__package__)
+__pkg = Distribution.from_name('ep_surface_fit')
 __version__ = __pkg.version
 
 

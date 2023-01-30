@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='ep_surface_fit',
-    version='0.4.1',
+    version='0.4.2',
     description='surface_fit wrapper',
     author='Jennings Zhang',
     author_email='Jennings.Zhang@childrens.harvard.edu',
