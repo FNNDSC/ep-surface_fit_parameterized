@@ -36,6 +36,9 @@ parser.add_argument('--no-fail', dest='no_fail', action='store_true',
                     help='Produce exit code 0 even if any subprocesses do not.')
 parser.add_argument('-V', '--version', action='version',
                     version=f'%(prog)s {__version__}')
+parser.add_argument('-t', '--threads', type=int, default=0,
+                    help='Number of threads to use for parallel jobs. '
+                         'Pass 0 to use number of visible CPUs.')
 
 parser.add_argument('--size', type=str, default='81920', help='number of polygons')
 parser.add_argument('--stretch-weight', type=str, default='100', help='stretch weight')
@@ -87,7 +90,10 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
         options.taubin
     ]
 
-    nproc = len(os.sched_getaffinity(0))
+    if options.threads > 0:
+        nproc = options.threads
+    else:
+        nproc = len(os.sched_getaffinity(0))
     logger.info('Using {} threads.', nproc)
 
     mapper = PathMapper.file_mapper(inputdir, outputdir, glob='**/*.mnc', suffix='.obj')
