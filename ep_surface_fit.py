@@ -111,7 +111,12 @@ def run_surface_fit(grid: Path, output_surf: Path, params: list[str]) -> bool:
         logger.error('No starting surface found for {}', grid)
         return False
 
-    cmd = ['surface_fit_script.pl', *params, grid, starting_surface, output_surf]
+    extra_args = [
+        '-disterr', output_surf.with_suffix('.disterr.txt'),
+        '-disterr-abs', output_surf.with_suffix('.disterr.abs.txt')
+    ]
+
+    cmd = ['surface_fit_script.pl', *params, *extra_args, grid, starting_surface, output_surf]
     log_file = output_surf.with_name(output_surf.name + '.log')
     logger.info('Starting: {}', ' '.join(map(str, cmd)))
     with log_file.open('wb') as log_handle:

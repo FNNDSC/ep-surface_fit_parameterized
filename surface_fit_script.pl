@@ -60,6 +60,8 @@ my $given_subsample = "0";
 my $given_self = "0.01";
 my $given_self_weight = "1";
 my $given_taubin = "0";
+my $disterr_file = undef;
+my $disterr_abs_file = undef;
 
 my @options = (
    ['-size', 'string', 1, \$given_size, "number of polygons"],
@@ -72,7 +74,9 @@ my @options = (
    ['-oversample', 'string', 1, \$given_subsample, "do subsampling (0=none, n=#points extra along edge)"],
    ['-self-dist', 'string', 1, \$given_self, "distance to check for self-intersection"],
    ['-self-weight', 'string', 1, \$given_self_weight, "weight for self-intersection constraint"],
-   ['-taubin', 'string', 1, \$given_taubin, "iterations of taubin smoothing to perform between cycles of surface_fit"]
+   ['-taubin', 'string', 1, \$given_taubin, "iterations of taubin smoothing to perform between cycles of surface_fit"],
+   ['-disterr', 'string', 1, \$disterr_file, "path where to save distance error data"],
+   ['-disterr-abs', 'string', 1, \$disterr_abs_file, "path where to save absolute value distance error data"]
   );
 
 GetOptions( \@options, \@ARGV ) or exit 1;
@@ -214,6 +218,19 @@ unlink( $stretch_model );
 #     HELPER FUNCTIONS
 # ============================================================
 
+if (defined $disterr_file) {
+  my $last_iso = $a_iso[-1];
+  my $disterr_off = "$tmpdir/disterr_off.txt";
+  system("volume_object_evaluate -linear $chamfer $surface $disterr_off");
+  system("vertstats_math -old_style_file $disterr_off -sub -const $last_iso $disterr_file");
+  if (defined $disterr_abs_file) {
+    system("vertstats_math -old_style_file $disterr_file -abs $disterr_abs_file");
+  }
+} elsif (defined $disterr_abs_file) {
+  die "Cannot use option -disterr-abs without -disterr";
+}
+
+# ~~~ FIN ~~~
 
 # Check if the input surface has the same side orientation (left)
 # as the default template model.
