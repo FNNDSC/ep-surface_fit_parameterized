@@ -11,7 +11,7 @@ from typing import Optional
 from chris_plugin import chris_plugin, PathMapper
 from loguru import logger
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 
 
 DISPLAY_TITLE = r"""
@@ -133,7 +133,12 @@ def run_surface_fit(grid: Path, output_surf: Path, params: list[str]) -> bool:
 
 
 def locate_surface_for(mask: Path) -> Optional[Path]:
-    glob = mask.parent.glob('*.obj')
+    if any(mask.name.startswith(p) for p in ('lh.', 'rh.')):
+        prefix = mask.name[:3]
+    else:
+        prefix = ''
+
+    glob = mask.parent.glob(f'{prefix}*.obj')
     first = next(glob, None)
     second = next(glob, None)
     if second is not None:
