@@ -6,9 +6,6 @@ LABEL org.opencontainers.image.authors="Jennings Zhang <Jennings.Zhang@childrens
 
 WORKDIR /usr/local/src/ep-surface_fit_parameterized
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
 COPY . .
 ARG extras_require=none
 RUN pip install ".[${extras_require}]"
